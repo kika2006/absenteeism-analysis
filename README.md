@@ -1,6 +1,6 @@
 # Absenteeism at Work: From Exploration to Prediction
 
-**Author:** Francisca (Kika) Freixo  
+**Author:** Francisca Freixo  
 
 A two-part analysis of employee absenteeism. Part 1 explores what drives hours missed. Part 2 predicts whether an absence will be long or short and compares classifiers.
 

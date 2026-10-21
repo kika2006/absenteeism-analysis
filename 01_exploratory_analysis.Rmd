@@ -1,11 +1,11 @@
 ---
 title: "Absenteeism at Work: Exploratory Data Analysis"
-author: "Francisca (Kika) Freixo"
+author: "Francisca Freixo"
 output: html_document
 date: "2024-11-19"
 ---
 
-Author: Francisca (Kika) Freixo
+Author: Francisca Freixo
 
 ```{r}
 abs <- read.csv(file = "data/Absenteeism_at_work.csv", sep = ";",

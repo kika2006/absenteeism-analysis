@@ -1,11 +1,11 @@
 ---
 title: "Absenteeism at Work: Predictive Modelling"
-author: "Francisca (Kika) Freixo"
+author: "Francisca Freixo"
 date: "2024-12-05"
 output: html_document
 ---
 
-Author: Francisca (Kika) Freixo
+Author: Francisca Freixo
 
  Data Loading and Exploration
 ```{r}
