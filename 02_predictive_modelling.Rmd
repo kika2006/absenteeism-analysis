@@ -1,0 +1,376 @@
+---
+title: "Absenteeism at Work: Predictive Modelling"
+author: "Francisca (Kika) Freixo"
+date: "2024-12-05"
+output: html_document
+---
+
+Author: Francisca (Kika) Freixo
+
+ Data Loading and Exploration
+```{r}
+
+file_path <- "data/Absenteeism_at_work.csv"
+data <- read.csv(file_path, sep = ";", stringsAsFactors = FALSE)
+
+if (exists("data") && is.data.frame(data)) {
+  cat("Dataset is loaded and is a dataframe.\n")
+} else {
+  stop("The dataset 'data' is not loaded or is not a dataframe. Check your file import step.")
+}
+
+cat("Structure of the dataset:\n")
+str(data)
+
+```
+
+ Data Partitioning
+```{r}
+
+set.seed(321)
+train_indices <- sample(1:nrow(data), size = 0.7 * nrow(data))
+train_data <- data[train_indices, ]
+test_data <- data[-train_indices, ]
+
+cat("Training set size:", nrow(train_data), "\n")
+cat("Test set size:", nrow(test_data), "\n")
+
+```
+
+ Partition Validation
+```{r}
+
+# Validating partition with hypothesis tests
+t_test_age <- t.test(train_data$Age, test_data$Age)
+t_test_bmi <- t.test(train_data$Body.mass.index, test_data$Body.mass.index)
+
+cat("T-test for Age:\n")
+print(t_test_age)
+cat("T-test for Body Mass Index:\n")
+print(t_test_bmi)
+
+```
+
+We split the dataset into 70% training and 30% test sets to develop models and evaluate their performance on unseen data. A random seed ensures reproducibility, meaning the same split can be recreated by others.
+
+We conducted t-tests on key numerical variables, such as Age and Body Mass Index (BMI), to validate the partitions. The results of these tests indicated no significant differences (p-values > 0.05) in the distributions of these variables between the training and test sets. This ensures that both subsets are representative of the overall population, reducing potential biases that could skew model evaluation. Including Age and BMI is justified because they are likely predictors of absenteeism due to their correlation with health and fitness levels.
+
+ Exploratory Data Analysis
+```{r}
+
+numeric_vars <- sapply(train_data, is.numeric)
+cor_matrix <- cor(train_data[, numeric_vars], use = "complete.obs")
+target_correlation <- cor_matrix[, "Absenteeism.time.in.hours"]
+target_correlation <- sort(target_correlation, decreasing = TRUE)
+
+cat("Correlations with target variable:\n")
+print(target_correlation)
+
+
+# Selecting top predictors
+significant_vars <- names(target_correlation[2:4]) # Exclude target itself
+cat("Selected significant variables:\n")
+print(significant_vars)
+
+```
+
+1. Model 1: k-Nearest Neighbor (k-NN) Model
+a) Loading necessary libraries 
+```{r}
+
+library(class)  # For k-NN
+library(caret)  # For confusion matrix 
+
+```
+
+b) Examining the target variable
+```{r}
+
+if (!"Absence.Category" %in% colnames(data)) {
+  median_hours <- median(data$`Absenteeism.time.in.hours`, na.rm = TRUE)
+  data$Absence.Category <- ifelse(data$`Absenteeism.time.in.hours` > median_hours, "High", "Low")
+  data$Absence.Category <- as.factor(data$Absence.Category)  # Ensuring it's a factor for classification
+}
+```
+
+c) Partitioning the data
+```{r}
+
+set.seed(123) 
+train_indices <- sample(1:nrow(data), size = 0.7 * nrow(data))
+train_data <- data[train_indices, ]
+test_data <- data[-train_indices, ]
+
+```
+
+d) Selecting + extracting + normalizing the predictors
+```{r}
+
+predictors_columns <- c("Reason.for.absence", "Month.of.absence", "Day.of.the.week",
+                        "Transportation.expense", "Distance.from.Residence.to.Work",
+                        "Service.time", "Age", "Work.load.Average.day", 
+                        "Body.mass.index")
+
+predictors_train <- train_data[, predictors_columns]
+predictors_test <- test_data[, predictors_columns]
+
+normalize <- function(x) {
+  (x - min(x)) / (max(x) - min(x))
+}
+predictors_train <- as.data.frame(lapply(predictors_train, normalize))
+predictors_test <- as.data.frame(lapply(predictors_test, normalize))
+
+```
+
+e) Extracting the target variable
+```{r}
+
+target_train <- train_data$Absence.Category
+target_test <- test_data$Absence.Category
+
+```
+
+f) Bulding the k-NN Model 
+```{r}
+
+k_values <- seq(1, 15, 2)  # Testing odd k values
+accuracy_knn <- sapply(k_values, function(k) {
+  predictions <- knn(predictors_train, predictors_test, cl = target_train, k = k)
+  mean(predictions == target_test)
+})
+
+# Selecting the best k
+best_k <- k_values[which.max(accuracy_knn)]
+cat("Best k:", best_k, "\n")
+
+final_knn_predictions <- knn(predictors_train, predictors_test, cl = target_train, k = best_k)
+
+```
+
+g) Accuracy
+```{r}
+
+final_knn_accuracy <- mean(final_knn_predictions == target_test)
+cat("Final k-NN Model Accuracy:", final_knn_accuracy, "\n")
+
+```
+
+h) The Confusion Matrix
+```{r}
+
+confusion_matrix <- table(Predicted = final_knn_predictions, Actual = target_test)
+print("Confusion Matrix:")
+print(confusion_matrix)
+
+```
+
+i) Cross-Validation for k-NN
+```{r}
+
+# Cross-Validation for k-NN
+library(caret)
+control <- trainControl(method = "cv", number = 10)  # 10-fold cross-validation
+
+knn_cv <- train(
+  Absence.Category ~ .,
+  data = train_data,
+  method = "knn",
+  trControl = control,
+  tuneGrid = expand.grid(k = seq(1, 15, 2))
+)
+
+cat("Best k from cross-validation:", knn_cv$bestTune$k, "\n")
+
+# Evaluate on the test set
+knn_cv_predictions <- predict(knn_cv, test_data)
+knn_cv_accuracy <- mean(knn_cv_predictions == test_data$Absence.Category)
+cat("Cross-Validated k-NN Accuracy:", knn_cv_accuracy, "\n")
+
+```
+
+The k-NN model was chosen as an instance-based learning method to complement the decision tree. We normalized the predictors to ensure all features contribute equally to distance calculations. Cross-validation (10-fold) was used to determine the optimal number of neighbors (k), balancing bias and variance.
+
+By just using the k-NN model without the cross-validation, the best k was found to be 11, and the model itself achieved an accuracy of 0.7342342 on the test set.
+
+The best k from the cross-validation was found to be 3, and the model achieved an accuracy of 0.7432432 on the test set. 
+
+This demonstrates that hyperparameter tuning through cross-validation slightly improved the model's performance, though the improvement was marginal. The increase in accuracy suggests that using a smaller number of neighbors (k=3) allowed the model to better capture local patterns in the data. 
+
+2.Model 2: Decision Tree 
+
+a)  Training
+```{r}
+# Load necessary libraries
+library(rpart)       # For decision tree
+library(rpart.plot)  # For tree visualization
+
+decision_tree <- rpart(
+  Absence.Category ~ Reason.for.absence + Month.of.absence + Day.of.the.week +
+    Transportation.expense + Distance.from.Residence.to.Work +
+    Service.time + Age + Work.load.Average.day + Body.mass.index,
+  data = train_data,
+  method = "class"
+)
+
+cat("Summary of Decision Tree:\n")
+print(summary(decision_tree))
+
+cat("\nVisualizing the Decision Tree:\n")
+rpart.plot(decision_tree, type = 3, extra = 102, fallen.leaves = TRUE, cex = 0.7)
+
+```
+
+b) Evaluating
+```{r}
+
+tree_predictions <- predict(decision_tree, test_data, type = "class")
+
+tree_accuracy <- mean(tree_predictions == test_data$Absence.Category)
+cat("\nDecision Tree Accuracy:", tree_accuracy, "\n")
+
+cat("\nConfusion Matrix:\n")
+confusion_matrix_tree <- table(Predicted = tree_predictions, Actual = test_data$Absence.Category)
+print(confusion_matrix_tree)
+
+```
+
+We chose a decision tree because it is interpretable and can uncover hierarchical relationships between variables. The model was trained to predict absenteeism categories ("High" vs. "Low"), and its structure was visualized to identify the most influential features.
+
+The results showed that variables like Reason for Absence, Workload, and Age were key predictors in the splits. This aligns with expectations, as specific reasons for absence (e.g., health-related) and workload pressures are known to affect absenteeism.
+
+The model achieved an accuracy of 0.8018018 on the test set, meaning it correctly classified absenteeism levels for most cases. However, the unpruned tree may have overfit the training data, as indicated by its complexity. Simplifying the tree through pruning might address this.
+
+c) Pruning
+```{r}
+
+cat("\nComplexity Parameter Table:\n")
+printcp(decision_tree)
+
+pruned_tree <- prune(decision_tree, cp = 0.01)  # Adjust 'cp' based on the table
+cat("\nVisualizing the Pruned Decision Tree:\n")
+rpart.plot(pruned_tree, type = 3, extra = 102, fallen.leaves = TRUE, cex = 0.7)
+
+pruned_predictions <- predict(pruned_tree, test_data, type = "class")
+pruned_accuracy <- mean(pruned_predictions == test_data$Absence.Category)
+cat("\nPruned Decision Tree Accuracy:", pruned_accuracy, "\n")
+
+cat("\nConfusion Matrix for Pruned Tree:\n")
+confusion_matrix_pruned <- table(Predicted = pruned_predictions, Actual = test_data$Absence.Category)
+print(confusion_matrix_pruned)
+
+
+```
+
+The decision tree was pruned using the complexity parameter (cp) to reduce overfitting. Pruning simplifies the tree by removing less significant splits, focusing on broader patterns in the data.
+
+After pruning, the tree's accuracy on the test set remained at 0.8018018, which was the same as the unpruned version. This result suggests that pruning did not improve the tree's ability to generalize to unseen data as we initially expected. However, this does not diminish the value of pruning. By simplifying the tree and removing less significant splits, pruning reduces overfitting risk and makes the model more interpretable and robust. While the accuracy stayed constant, the pruned tree achieves a better balance between complexity and performance. 
+
+ Model Comparison 1
+```{r}
+
+cat("\nModel Comparison:\n")
+cat("Decision Tree Accuracy:", tree_accuracy, "\n")
+cat("k-NN Model Accuracy:", final_knn_accuracy, "\n")
+
+if (tree_accuracy > final_knn_accuracy) {
+  cat("The Decision Tree performed better.\n")
+} else if (tree_accuracy < final_knn_accuracy) {
+  cat("The k-NN model performed better.\n")
+} else {
+  cat("Both models performed equally well.\n")
+}
+
+```
+3. Model 3: Linear Regression
+```{r}
+
+formula <- as.formula(paste("Absenteeism.time.in.hours ~", paste(significant_vars, collapse = " + ")))
+improved_linear_model <- lm(formula, data = train_data)
+summary(improved_linear_model)
+
+```
+
+a) Model Evaluation
+```{r}
+
+cat("\nEvaluating Models on Test Data:\n")
+
+# Evaluating the Linear Model
+lm_predictions <- predict(improved_linear_model, newdata = test_data)
+lm_mae <- mean(abs(lm_predictions - test_data$Absenteeism.time.in.hours))
+lm_rmse <- sqrt(mean((lm_predictions - test_data$Absenteeism.time.in.hours)^2))
+cat("Linear Model - MAE:", lm_mae, ", RMSE:", lm_rmse, "\n")
+
+```
+
+b) Cross-Validation
+```{r}
+
+if (!requireNamespace("caret", quietly = TRUE)) install.packages("caret")
+library(caret)
+
+# Cross-validation for Linear Regression
+train_control <- trainControl(method = "cv", number = 10)
+cv_linear_model <- train(formula, data = train_data, method = "lm", trControl = train_control)
+print(cv_linear_model)
+
+```
+
+c) Baseline for Linear Model
+```{r}
+
+lm_model <- glm(Absence.Category ~ Reason.for.absence + Month.of.absence + Day.of.the.week +
+                  Transportation.expense + Distance.from.Residence.to.Work +
+                  Service.time + Age + Work.load.Average.day + Body.mass.index,
+                data = train_data,
+                family = binomial)
+
+
+lm_predictions <- ifelse(predict(lm_model, test_data, type = "response") > 0.5, "High", "Low")
+lm_accuracy <- mean(lm_predictions == test_data$Absence.Category)
+cat("Linear Model Accuracy:", lm_accuracy, "\n")
+
+
+confusion_matrix_lm <- table(Predicted = lm_predictions, Actual = test_data$Absence.Category)
+print("Confusion Matrix for Linear Model:")
+print(confusion_matrix_lm)
+
+```
+The linear model (logistic regression) was included as a baseline to compare with more complex models. It predicts absenteeism categories based on a linear combination of predictors, assuming additive relationships.
+
+The linear model achieved an accuracy of 0.3603604 on the test set, lower than both the decision tree and k-NN. This result highlights its limited ability to capture non-linear relationships in the data. Despite this, the model serves as a useful benchmark and demonstrates the added value of using tree-based or instance-based methods.
+
+4. Comparison of ALL Models
+```{r}
+
+comparison <- data.frame(
+  Model = c("Decision Tree", "Pruned Decision Tree", "k-NN", "Cross-Validated k-NN", "Linear Model"),
+  Accuracy = c(tree_accuracy, pruned_accuracy, final_knn_accuracy, knn_cv_accuracy, lm_accuracy)
+)
+
+cat("Model Comparison Table:\n")
+print(comparison)
+
+```
+The Decision Tree and Pruned Decision Tree both achieved the highest accuracy at 80.2%, demonstrating their ability to effectively capture patterns in the data. The pruning process, which simplifies the tree by removing less significant splits, did not impact accuracy but improved interpretability, making the pruned tree a better choice for practical applications where understanding decision rules is critical.
+
+The k-NN model, without cross-validation, had an accuracy of 73.4%, slightly lower than the decision tree models. This suggests that while k-NN captures complex patterns in the data, it may be more sensitive to the choice of hyperparameters. The Cross-Validated k-NN, despite tuning k, performed only slightly better at 74.3%, indicating limited additional benefit from optimization in this case. k-NN’s performance may also be affected by the curse of dimensionality, particularly if some features do not significantly contribute to the prediction.
+
+The Linear Model performed the worst, with an accuracy of only 36.0%. This highlights its inability to model the likely non-linear relationships in the data effectively. While the linear model provides a simple baseline, its poor performance reinforces the importance of using more advanced, non-linear methods like decision trees or k-NN for this dataset.
+
+15. Final Summary and Recommendations
+```{r}
+
+cat("Summary and Recommendations:\n")
+cat("1. Decision Tree performed with accuracy:", tree_accuracy, "\n")
+cat("2. Pruned Decision Tree did not improve accuracy, hence it stayed:", pruned_accuracy, "\n")
+cat("3. Cross-validated k-NN achieved accuracy:", knn_cv_accuracy, "\n")
+cat("4. Linear Model accuracy as baseline was:", lm_accuracy, "\n")
+
+cat("Recommendations:\n")
+cat("- Use the Pruned Decision Tree for its balance of accuracy (80.2%) and interpretability, making it ideal for actionable insights.\n")
+cat("- Apply Cross-Validated k-NN for scenarios requiring slightly higher accuracy, but ensure computational resources are available.\n")
+
+```
+
+Overall, the Pruned Decision Tree emerges as the most practical model, offering both strong accuracy and interpretability. While k-NN has comparable performance, it lacks the interpretability of decision trees and requires more computational resources for large datasets. The linear model, although simple, is insufficient for this type of data. These results underscore the value of non-linear models for predicting absenteeism and suggest that decision trees, particularly pruned versions, are well-suited for both predictive accuracy and actionable insights in workplace settings.

@@ -1,0 +1,272 @@
+---
+title: "Absenteeism at Work: Exploratory Data Analysis"
+author: "Francisca (Kika) Freixo"
+output: html_document
+date: "2024-11-19"
+---
+
+Author: Francisca (Kika) Freixo
+
+```{r}
+abs <- read.csv(file = "data/Absenteeism_at_work.csv", sep = ";",
+                  stringsAsFactors = FALSE)
+```
+
+
+```{r}
+#random subset of 600 observations
+set.seed(321)
+dataset <- abs[sample(1:nrow(abs), 600), ]  
+
+```
+
+To get a better feeling for the data, the first 10 observations and the summary of the data set are shown below. The data set consists of 21 variables. The target variable is Absenteeism.time.in.hours. 
+```{r}
+
+
+head(dataset)
+summary(dataset)
+hist(dataset$Absenteeism.time.in.hours,
+     main = "Distribution of Absenteeism Time",
+     xlab = "Absenteeism Time (Hours)",
+     col = "lightblue", border = "black",
+     breaks = 10)
+```
+
+
+```{r}
+missing_values <- apply(dataset, 2, function(col) sum(is.na(col)))
+cat("Missing values per column:\n")
+print(missing_values)
+
+```
+This allows us to see how there are no missing values, meaning that there is no information missing from any row or column. This allows for an easier analysis of the data, as there is no need to handle missing data by replacing it with mode/median/or another number. 
+
+
+```{r}
+is_numeric <- sapply(dataset, is.numeric)
+numeric_cols <- dataset[, is_numeric]
+outliers <- sapply(numeric_cols, function(col) {
+  Q1 <- quantile(col, 0.25, na.rm = TRUE)
+ Q3 <- quantile(col, 0.75, na.rm = TRUE)
+ IQR <- Q3 - Q1
+ sum(col < (Q1 - 3 * IQR) | col > (Q3 + 3 * IQR), na.rm = TRUE)
+})
+cat("Number of outliers in each numeric column:\n")
+print(outliers)
+
+```
+We can now see how variables Education, Pet, Height, Absenteeism.time.in.hours, Disciplinary.failure and Social.smoker have outliers, so below we will delve deeper into them. For numerical variables, such as Height and Absenteeism.time.in.hours, we did box plots, and for the categorical/flag variables (Education, Pet, Social.smoker and Disciplinary.failure) we will do both violin plots. 
+
+
+```{r}
+# Boxplot for Absenteeism Time
+boxplot(dataset$Absenteeism.time.in.hours, main = "Absenteeism Time in Hours",
+        ylab = "Hours", col = "skyblue")
+
+```
+The box plot shows that most absenteeism times are concentrated around lower values. However, there are significant outliers above 100 hours, indicating a few extreme cases of high absenteeism, making the data positively skewed. 
+
+
+```{r}
+# Boxplot for Height
+boxplot(dataset$Height, main = "Height",
+        ylab = "Units", col = "skyblue")
+
+```
+This box plot represents height and shows that the majority of heights are concentrated around the median, within a relatively narrow interquartile range. A few outliers are visible above 185 cm and below 165 cm, indicating some individuals are exceptionally tall or short compared to the typical range. The distribution appears fairly symmetric, with no significant skew.
+
+
+```{r}
+#SEASON
+
+library(ggplot2)
+ggplot(dataset, aes(x = factor(Seasons), y = Absenteeism.time.in.hours)) +
+  geom_violin(fill = "lightblue") +
+  labs(title = "Absenteeism Time by Season",
+       x = "Season", y = "Absenteeism Time (Hours)")
+
+ggplot(dataset, aes(x = factor(Seasons), y = Absenteeism.time.in.hours)) +
+  geom_boxplot(fill = "lightblue") +
+  labs(title = "Absenteeism Time by Seasons",
+       x = "Seasons", y = "Absenteeism Time (Hours)")
+
+```
+
+The violin plot shows the distribution of absenteeism time across seasons, showing that while most absences cluster around lower durations, all seasons exhibit outliers, with Season 3 having a denser distribution of mid-level absences. The bar chart complements this by highlighting the mean absenteeism time for each season, with Season 3 having the highest average and variability, consistent with its broader spread observed in the violin plot.
+
+
+
+```{r}
+#EDUCATION
+
+library(ggplot2)
+ggplot(dataset, aes(x = factor(Education), y = Absenteeism.time.in.hours)) +
+  geom_violin(fill = "lightblue") +
+  labs(title = "Absenteeism Time by Education",
+       x = "Education", y = "Absenteeism Time (Hours)")
+
+ggplot(dataset, aes(x = factor(Education), y = Absenteeism.time.in.hours)) +
+  geom_boxplot(fill = "lightblue") +
+  labs(title = "Absenteeism Time by level of Education",
+       x = "Level of Education", y = "Absenteeism Time (Hours)")
+
+```
+This violin plot shows the relationship between education levels and absenteeism time in hours. It indicates the distribution and density of absenteeism time across different education categories. Education level 1 exhibits the widest range and highest variability in absenteeism time, with outliers extending beyond 100 hours, while higher education levels show lower absenteeism times with tighter distributions. This suggests a potential inverse/negative relationship between education level and absenteeism, where individuals with higher education levels may tend to have more consistent or lower absenteeism rates.
+
+
+```{r}
+#Pet
+
+library(ggplot2)
+ggplot(dataset, aes(x = factor(Pet), y = Absenteeism.time.in.hours)) +
+  geom_violin(fill = "lightblue") +
+  labs(title = "Absenteeism Time by Pet",
+       x = "Pet", y = "Absenteeism Time (Hours)")
+
+
+ggplot(dataset, aes(x = factor(Pet), y = Absenteeism.time.in.hours)) +
+  geom_boxplot(fill = "lightblue") +
+  labs(title = "Absenteeism Time by number of Pets",
+       x = "Number of pets", y = "Absenteeism Time (Hours)")
+
+```
+This violin plot shows the distribution of absenteeism time in hours across how many pets a personhas. It reveals that individuals with no pets (0) and one pet (1) tend to have the most variability in absenteeism, with some extreme outliers reaching over 100 hours. On the other hand, categories with higher numbers of pets show much tighter distributions and generally lower absenteeism times. This suggests that pet ownership, especially having fewer or no pets, might correlate with greater variability or higher absenteeism, though further analysis would be needed to confirm any relationship.
+
+
+
+```{r}
+#Social.smoker
+
+library(ggplot2)
+ggplot(dataset, aes(x = factor(Social.smoker), y = Absenteeism.time.in.hours)) +
+  geom_violin(fill = "lightblue") +
+  labs(title = "Absenteeism Time by whether they are a social smoker",
+       x = "Socail smoker or not", y = "Absenteeism Time (Hours)")
+
+
+ggplot(dataset, aes(x = factor(Social.smoker), y = Absenteeism.time.in.hours)) +
+  geom_boxplot(fill = "lightblue") +
+  labs(title = "Absenteeism Time by whether they are a Social Smoker",
+       x = "Social Smoker or not", y = "Absenteeism Time (Hours)")
+
+```
+This violin plot compares absenteeism time in hours between individuals who are not social smokers (0) and those who are (1). The plot indicates that non-social smokers (0) have a wider range of absenteeism, with some extreme outliers exceeding 100 hours, and a denser distribution at lower absenteeism times. In contrast, social smokers (1) exhibit a tighter distribution with fewer extreme cases and generally lower absenteeism. This may suggest that social smoking status could correlate with differences in absenteeism patterns, although further analysis would be needed to establish any correlation.
+
+
+
+```{r}
+library(ggplot2)
+ggplot(dataset, aes(x = factor(Disciplinary.failure), y = Absenteeism.time.in.hours)) +
+  geom_violin(fill = "lightblue") +
+  labs(title = "Absenteeism Time by whether they are a Disciplinary failure",
+       x = "Disciplinary failure or not", y = "Absenteeism Time (Hours)")
+
+
+
+ggplot(dataset, aes(x = factor(Disciplinary.failure), y = Absenteeism.time.in.hours)) +
+  geom_boxplot(fill = "lightblue") +
+  labs(title = "Absenteeism Time by whether they are a Disciplinary failure",
+       x = "Disciplinary failure or not", y = "Absenteeism Time (Hours)")
+
+```
+To undertsand why both the box plot and the violin graph weren't showing anything in the category of when the people were considered - Disciplinary Failure. We looked at how many of each there were. 
+
+```{r}
+table(dataset$Disciplinary.failure)
+
+```
+We saw how there were only 34 observations that were considered Disciplinary Failure, when compared to 566 observations that weren't considered Disciplicary Failure. That is the probable cause of why we are not being able to create a box/violin plot for the observations considered a disciplinary failure. 
+
+
+
+To see which values were correlated, we did both the correlation matrix, and a more visual representation of the correlations - correlation matrix heatmap. 
+
+```{r}
+
+corrdata <- dataset[, sapply(dataset, is.numeric)]
+correlation_matrix <- round(cor(corrdata, use = "complete.obs"), 4)
+print(correlation_matrix)
+
+library("corrplot")
+numeric_columns <- dataset[, sapply(dataset, is.numeric)]
+print(is.numeric)
+cor_matrix <- cor(dataset[ , is_numeric], use = "complete.obs")
+print(cor_matrix)
+
+corrplot(cor_matrix, method = "color", type = "upper", tl.col = "black",tl.cex = 0.6,tl.srt=50, number.cex = 0.7,  col = colorRampPalette(c("blue", "white", "red"))(200)
+         )
+```
+Both the correlation matrix and the show weak correlations between most features and the target variable, Absenteeism.time.in.hours, suggesting that absenteeism is not strongly influenced by any single factor. However, Disciplinary.failure shows a moderate positive correlation, indicating it may contribute to higher absenteeism. Body.mass.index also shows a slight positive relationship, hinting at potential health-related absenteeism. Social behaviors like Social.smoker and Social.drinker appear to have negligible influence. Additionally, variables like Height and Weight strongly correlate with each other but not with absenteeism, highlighting redundancy that could be excluded from modeling. Overall, the lack of strong predictors suggests absenteeism may require feature combinations or engineered interactions for accurate modeling.
+
+
+```{r}
+#binning
+dataset$AbsenteeismCategory <- cut(
+  dataset$Absenteeism.time.in.hours,
+  breaks = 3,  
+  labels = c("Low", "Medium", "High"),
+  include.lowest = TRUE
+)
+
+categorical_columns <- dataset[, c(names(dataset)[sapply(dataset, is.factor)], "AbsenteeismCategory")]
+
+for (column_name in colnames(categorical_columns)) {
+  cat("Frequency Table for", column_name, ":\n")
+  print(table(categorical_columns[[column_name]], useNA = "ifany"))  # #Include NA values if present
+  cat("\n-----------------------------\n")
+}
+
+```
+This frequency table shows how there are 589 observations where Absenteeism time is low, 7 observations where Absenteeism time is medium, and 4 observations where Absenteeism time is high. 
+
+
+
+```{r}
+plot(dataset$Transportation.expense, dataset$Absenteeism.time.in.hours,
+     xlab = "Transportation Expense",
+     ylab = "Absenteeism Time (Hours)",
+     main = "Relationship Between Transportation Expense and Absenteeism Time",
+     col = "darkgreen", pch = 19)
+
+
+```
+This scatter plot provides a  visual representation of how transportation costs might influence absenteeism, offering insights that can guide strategic decision-making and policy adjustments
+
+
+
+
+```{r}
+
+# Summarize data for stacked bar chart
+stacked_data <- aggregate(Absenteeism.time.in.hours ~ Seasons + Social.drinker, 
+                          data = dataset, sum)
+
+# Create stacked bar chart
+library(ggplot2)
+ggplot(stacked_data, aes(x = factor(Seasons), y = Absenteeism.time.in.hours, fill = factor(Social.drinker))) +
+  geom_bar(stat = "identity") +
+  labs(title = "Stacked Bar Chart of Absenteeism by Season and Social Drinker",
+       x = "Season", y = "Total Absenteeism Time (Hours)", fill = "Social Drinker") +
+  theme_minimal()
+
+```
+The stacked bar chart shows  seasonal trends in absenteeism. Winter has the highest total absenteeism time, with both social drinkers and non-drinkers contributing significantly. Social drinkers, however, show a slightly higher share of absenteeism during this season. Spring sees a decrease in total absenteeism, with a smaller proportion coming from social drinkers. In Summer, absenteeism is more balanced between drinkers and non-drinkers, with moderate total absenteeism compared to Winter and Spring. Autumn has the lowest absenteeism, with non-drinkers contributing more than drinkers.
+
+Social drinkers contribute more to absenteeism during Winter and Summer. In contrast, Spring and Autumn show non-drinkers as the dominant contributors to absenteeism, indicating a change in work or personal habits during these seasons.These patterns suggest that Winter requires the most attention from management due to the peak in absenteeism, possibly linked to weather or health-related issues. Seasonal policies, such as flexible work arrangements during high absenteeism periods, may help lower absenteeism. 
+
+
+
+
+This project focused on exploring and analyzing the Absenteeism at Work dataset to uncover meaningful insights that could guide managerial decision-making. The dataset provided detailed information about employee absenteeism, including hours missed, demographic data, workplace conditions, and seasonal trends. Using R for the analysis, the project applied techniques such as data exploration, outlier detection, visualization, and statistical analysis to identify relationships and trends in absenteeism. The primary objective was to determine the factors contributing to absenteeism and provide actionable recommendations for addressing these issues.
+The analysis began with data preparation. The dataset was loaded, and text columns were preserved as character variables to prevent premature conversion to categorical data. A random subset of 600 rows was selected for analysis to ensure data diversity and manageability while maintaining reproducibility through the use of a fixed seed. Exploratory Data Analysis (EDA) was conducted to gain an initial understanding of the dataset. Summary statistics for all variables were generated, and a histogram was created to visualize the distribution of absenteeism hours. The dataset was checked for missing values, confirming its completeness and ensuring that the analysis could proceed without the need for imputation.
+Outliers in numeric variables were identified using the interquartile range (IQR) rule, with boxplots used to visualize these anomalies. Relationships between key variables were explored in depth. A scatter plot was used to examine the connection between transportation expenses and absenteeism hours, revealing a moderate positive correlation. Seasonal patterns in absenteeism were visualized using violin plots, showing distinct trends across different times of the year. Absenteeism hours were categorized into three bins—Low, Medium, and High—allowing for a clearer understanding of the distribution of employees based on absenteeism levels. Frequency tables were generated for categorical variables, offering additional insights into their distributions.
+A correlation analysis was performed to identify significant relationships among numeric variables. A correlation matrix was computed, and a heatmap was used to visualize these relationships, highlighting important patterns. These findings provided valuable insights into the factors influencing absenteeism.
+The analysis revealed several key insights. The dataset included diverse reasons for absenteeism, reflecting the complexity of factors influencing attendance. Health-related issues, personal responsibilities, and workplace conditions emerged as significant contributors, underscoring the need for targeted policies to address specific drivers of absenteeism. Seasonal and monthly trends in absenteeism were also evident, with employees more likely to be absent during specific months and seasons, such as winter or summer. These patterns may be attributed to factors such as weather conditions, holidays, or seasonal illnesses.
+Transportation expenses were found to positively correlate with absenteeism hours, suggesting that commuting challenges contribute to absenteeism. Addressing these challenges through measures such as transportation subsidies or remote work options could help mitigate this issue. Demographic factors, including age, service time, and distance from residence to work, also influenced absenteeism. Employees with longer service times might face burnout or health challenges, while those living farther from work could experience increased stress. Behavioral factors, such as being a social smoker or drinker, appeared to correlate with absenteeism, potentially indicating lifestyle habits that impact health and attendance.
+Outliers in absenteeism hours highlighted exceptional cases that require further investigation. Employees in the "High" absenteeism category likely contribute disproportionately to productivity losses. Providing targeted support for these employees, such as wellness programs or flexible schedules, could significantly reduce absenteeism rates. Additionally, most employees fell into the "Low" absenteeism category, indicating a need to focus interventions on higher absenteeism cases.
+The methodological approach to this analysis was designed to ensure transparency and reproducibility. Random sampling with set.seed ensured consistent results, while summary functions provided a comprehensive overview of the dataset. Visualizations such as histograms, scatter plots, boxplots, and violin plots effectively communicated findings. Binned categories for absenteeism hours and frequency tables for categorical variables enhanced interpretability. The correlation matrix and heatmap further identified significant relationships among numeric variables.
+Based on the analysis, several actionable recommendations were made. Managers should plan for increased absenteeism during specific seasons by offering flexible work schedules or additional resources. Addressing commuting challenges through transportation subsidies or remote work policies could improve employee attendance. Demographic and behavioral insights could be used to create tailored support systems for high-risk employee groups, such as older employees or those with long commutes. Additionally, promoting wellness programs and stress management resources could help address absenteeism related to health and behavioral factors.
+In conclusion, this project highlighted the importance of exploratory data analysis for understanding absenteeism through multiple perspectives. By considering demographic, behavioral, and seasonal factors, organizations can develop data-driven strategies to reduce absenteeism and improve productivity. The use of R programming provided a clear, reproducible workflow, emphasizing transparency and clarity. These findings can serve as a foundation for future predictive modeling and deeper investigations into the causes of absenteeism.
+
+
