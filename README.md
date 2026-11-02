@@ -31,4 +31,4 @@ The pruned decision tree was recommended because it is the most accurate model a
 ## Running it
 Download the [UCI Absenteeism at Work dataset](https://archive.ics.uci.edu/dataset/445/absenteeism+at+work) into `data/`, then knit the two `.Rmd` files.
 
-*Maastricht University, Knowledge Discovery & Data Visualisation (2024). Pair project.*
+*Maastricht University, Knowledge Discovery & Data Visualisation (2024).*
